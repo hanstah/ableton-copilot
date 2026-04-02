@@ -5,6 +5,7 @@ import anthropic
 from dotenv import load_dotenv
 from ableton_client import AbletonClient
 from claude_client import chat
+from song_builder import build_song, is_song_request
 
 load_dotenv(Path(__file__).parent.parent / '.env')
 
@@ -38,16 +39,19 @@ def main():
             print("Goodbye.")
             break
 
-        messages.append({"role": "user", "content": user_input})
-
-        try:
-            response = chat(messages, ableton, client)
+        if is_song_request(user_input):
+            print('\n[Song builder mode — planning full song before executing]\n')
+            response = build_song(user_input, ableton, client)
             print(f"\n{response}\n")
-            messages.append({"role": "assistant", "content": response})
-        except Exception as e:
-            print(f"Error: {e}\n")
-            # Remove the last user message so the conversation stays valid
-            messages.pop()
+        else:
+            messages.append({"role": "user", "content": user_input})
+            try:
+                response = chat(messages, ableton, client)
+                print(f"\n{response}\n")
+                messages.append({"role": "assistant", "content": response})
+            except Exception as e:
+                print(f"Error: {e}\n")
+                messages.pop()
 
 
 if __name__ == '__main__':
