@@ -152,6 +152,55 @@ TOOLS = [
         },
     },
     {
+        "name": "get_scenes",
+        "description": "Get all scenes (song sections) in the session, with their names and indices.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "create_scene",
+        "description": "Create a new scene (song section like Intro, Verse, Chorus). Each scene is a row in the session grid where all tracks can have a clip.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "index": {"type": "integer", "description": "Position to insert the scene (0-based). Use -1 to append at end."},
+            },
+        },
+    },
+    {
+        "name": "rename_scene",
+        "description": "Name a scene (e.g. 'Intro', 'Verse', 'Chorus', 'Outro').",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "scene": {"type": "integer", "description": "Scene index (0-based)"},
+                "name": {"type": "string", "description": "New scene name"},
+            },
+            "required": ["scene", "name"],
+        },
+    },
+    {
+        "name": "launch_scene",
+        "description": "Launch a scene — fires all clips in that row simultaneously.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "scene": {"type": "integer", "description": "Scene index (0-based)"},
+            },
+            "required": ["scene"],
+        },
+    },
+    {
+        "name": "delete_scene",
+        "description": "Delete a scene.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "scene": {"type": "integer", "description": "Scene index (0-based)"},
+            },
+            "required": ["scene"],
+        },
+    },
+    {
         "name": "list_audio_effects",
         "description": "List available audio effects in the Ableton browser (reverb, delay, EQ, compressor, etc). Call this before load_audio_effect to find exact names.",
         "input_schema": {"type": "object", "properties": {}},
@@ -317,10 +366,20 @@ Timing: beat 1=0.0, beat 2=1.0, beat 3=2.0, beat 4=3.0 (4/4 time)
 ## Song creation workflow
 1. get_session_info to check existing state
 2. Set tempo and time signature for the genre
-3. Call list_instruments ONCE to see all available instruments
-4. For each part: create_midi_track → rename_track → load_instrument (exact name from list) → set_device_parameter to shape sound → load_audio_effect for reverb/delay/EQ (use list_audio_effects first, exact names only) → create_midi_clip → set_clip_name → add_notes
-5. Balance mix: lead ~0.85, pads ~0.7, bass ~0.8, drums ~0.9
-6. One track per instrument — never share tracks
+3. Call list_instruments ONCE and list_audio_effects ONCE
+4. Plan song structure (e.g. Intro → Verse → Chorus → Verse → Chorus → Outro)
+5. Create and name all scenes upfront (create_scene → rename_scene)
+6. For each instrument: create_midi_track → rename_track → load_instrument → shape with set_device_parameter → load_audio_effect for reverb/delay/EQ
+7. For each scene × track: create_midi_clip in the right slot → set_clip_name → add_notes for that section
+   - Intro: sparse, fewer elements, lower velocities
+   - Verse: full arrangement, melodic, moderate energy
+   - Chorus: maximum energy, all elements, highest velocities
+   - Outro: strip back, mirror the intro
+8. Balance mix: lead ~0.85, pads ~0.7, bass ~0.8, drums ~0.9
+9. One track per instrument — never share tracks
+
+## Scene/slot mapping
+Scene index = clip slot index. Scene 0 = slot 0 on every track, Scene 1 = slot 1, etc. A 4-scene song (Intro/Verse/Chorus/Outro) uses slots 0–3 on each track.
 
 ## Genre reference
 - **Future bass / Illenium-style**: 140-150 BPM, A minor or C major, supersaw chords (Wavetable), emotional soaring lead melody, punchy 808 bass, four-on-the-floor kick + syncopated hi-hats
@@ -358,6 +417,16 @@ def run_tool(name: str, inputs: dict, ableton: AbletonClient) -> str:
         return json.dumps(ableton.set_track_mute(inputs['track'], inputs['muted']))
     elif name == 'set_track_solo':
         return json.dumps(ableton.set_track_solo(inputs['track'], inputs['solo']))
+    elif name == 'get_scenes':
+        return json.dumps(ableton.send({'action': 'get_scenes'}))
+    elif name == 'create_scene':
+        return json.dumps(ableton.send({'action': 'create_scene', 'index': inputs.get('index', -1)}))
+    elif name == 'rename_scene':
+        return json.dumps(ableton.send({'action': 'rename_scene', 'scene': inputs['scene'], 'name': inputs['name']}))
+    elif name == 'launch_scene':
+        return json.dumps(ableton.send({'action': 'launch_scene', 'scene': inputs['scene']}))
+    elif name == 'delete_scene':
+        return json.dumps(ableton.send({'action': 'delete_scene', 'scene': inputs['scene']}))
     elif name == 'list_audio_effects':
         return json.dumps(ableton.send({'action': 'list_audio_effects'}))
     elif name == 'load_audio_effect':

@@ -204,6 +204,43 @@ class CopilotScript(ControlSurface):
             track.solo = bool(command['solo'])
             return {'ok': True}
 
+        elif action == 'get_scenes':
+            return {
+                'scenes': [
+                    {'index': i, 'name': s.name, 'tempo': s.tempo if s.tempo > 0 else None}
+                    for i, s in enumerate(song.scenes)
+                ]
+            }
+
+        elif action == 'create_scene':
+            index = int(command.get('index', -1))
+            song.create_scene(index)
+            return {
+                'ok': True,
+                'scene_index': len(song.scenes) - 1 if index == -1 else index,
+                'scenes': [{'index': i, 'name': s.name} for i, s in enumerate(song.scenes)],
+            }
+
+        elif action == 'rename_scene':
+            song.scenes[int(command['scene'])].name = command['name']
+            return {'ok': True}
+
+        elif action == 'launch_scene':
+            song.scenes[int(command['scene'])].fire()
+            return {'ok': True}
+
+        elif action == 'set_scene_tempo':
+            scene = song.scenes[int(command['scene'])]
+            scene.tempo = float(command['bpm'])
+            return {'ok': True}
+
+        elif action == 'delete_scene':
+            song.delete_scene(int(command['scene']))
+            return {
+                'ok': True,
+                'scenes': [{'index': i, 'name': s.name} for i, s in enumerate(song.scenes)],
+            }
+
         elif action == 'list_audio_effects':
             browser = Live.Application.get_application().browser
             results = []
