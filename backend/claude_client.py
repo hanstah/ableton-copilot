@@ -152,6 +152,23 @@ TOOLS = [
         },
     },
     {
+        "name": "list_instruments",
+        "description": "List available instruments in the Ableton browser. Call this to discover what instruments can be loaded before calling load_instrument.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "load_instrument",
+        "description": "Load an instrument onto a track by name. Use list_instruments first to find exact names. This replaces any existing instrument on the track.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "name": {"type": "string", "description": "Exact instrument name as returned by list_instruments"},
+            },
+            "required": ["track", "name"],
+        },
+    },
+    {
         "name": "delete_track",
         "description": "Delete a track from the session.",
         "input_schema": {
@@ -263,6 +280,7 @@ You have tools to:
 - Create and edit MIDI clips (create, name, duplicate, add notes, clear notes)
 - Mix tracks (volume, mute, solo)
 - Control device parameters (get and set instrument/effect knobs)
+- Load instruments onto tracks (list_instruments to discover, load_instrument to apply)
 
 When creating a full song or arrangement, always create dedicated tracks for each instrument rather than cramming multiple parts into one track.
 
@@ -304,6 +322,10 @@ def run_tool(name: str, inputs: dict, ableton: AbletonClient) -> str:
         return json.dumps(ableton.set_track_mute(inputs['track'], inputs['muted']))
     elif name == 'set_track_solo':
         return json.dumps(ableton.set_track_solo(inputs['track'], inputs['solo']))
+    elif name == 'list_instruments':
+        return json.dumps(ableton.send({'action': 'list_instruments'}))
+    elif name == 'load_instrument':
+        return json.dumps(ableton.send({'action': 'load_instrument', 'track': inputs['track'], 'name': inputs['name']}))
     elif name == 'delete_track':
         return json.dumps(ableton.send({'action': 'delete_track', 'track': inputs['track']}))
     elif name == 'set_clip_name':

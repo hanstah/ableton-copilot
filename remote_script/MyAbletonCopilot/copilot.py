@@ -204,6 +204,28 @@ class CopilotScript(ControlSurface):
             track.solo = bool(command['solo'])
             return {'ok': True}
 
+        elif action == 'list_instruments':
+            browser = Live.Application.get_application().browser
+            results = []
+            for item in browser.instruments.children:
+                if item.is_folder:
+                    results.append({'name': item.name, 'children': [c.name for c in item.children if c.is_loadable]})
+                elif item.is_loadable:
+                    results.append({'name': item.name})
+            return {'instruments': results}
+
+        elif action == 'load_instrument':
+            browser = Live.Application.get_application().browser
+            track = song.tracks[command['track']]
+            song.view.selected_track = track
+            item = self._find_browser_item(browser.instruments.children, command['name'])
+            if item is None:
+                item = self._find_browser_item(browser.plugins.children, command['name'])
+            if item is None:
+                return {'error': 'Instrument not found: {}'.format(command['name'])}
+            browser.load_item(item)
+            return {'ok': True, 'loaded': item.name}
+
         elif action == 'delete_track':
             song.delete_track(int(command['track']))
             return {
@@ -258,6 +280,19 @@ class CopilotScript(ControlSurface):
 
         else:
             return {'error': 'Unknown action: {}'.format(action)}
+
+    def _find_browser_item(self, items, name, depth=0):
+        if depth > 4:
+            return None
+        name_lower = name.lower()
+        for item in items:
+            if item.name.lower() == name_lower and item.is_loadable:
+                return item
+            if item.is_folder:
+                found = self._find_browser_item(item.children, name, depth + 1)
+                if found:
+                    return found
+        return None
 
     def disconnect(self):
         if self._server_socket:
