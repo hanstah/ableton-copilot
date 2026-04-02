@@ -204,6 +204,26 @@ class CopilotScript(ControlSurface):
             track.solo = bool(command['solo'])
             return {'ok': True}
 
+        elif action == 'list_audio_effects':
+            browser = Live.Application.get_application().browser
+            results = []
+            for item in browser.audio_effects.children:
+                if item.is_folder:
+                    results.append({'name': item.name, 'children': [c.name for c in item.children if c.is_loadable]})
+                elif item.is_loadable:
+                    results.append({'name': item.name})
+            return {'audio_effects': results}
+
+        elif action == 'load_audio_effect':
+            browser = Live.Application.get_application().browser
+            track = song.tracks[command['track']]
+            song.view.selected_track = track
+            item = self._find_browser_item(browser.audio_effects.children, command['name'])
+            if item is None:
+                return {'error': 'Audio effect not found: {}'.format(command['name'])}
+            browser.load_item(item)
+            return {'ok': True, 'loaded': item.name}
+
         elif action == 'list_instruments':
             browser = Live.Application.get_application().browser
             results = []

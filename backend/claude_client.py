@@ -152,6 +152,23 @@ TOOLS = [
         },
     },
     {
+        "name": "list_audio_effects",
+        "description": "List available audio effects in the Ableton browser (reverb, delay, EQ, compressor, etc). Call this before load_audio_effect to find exact names.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "load_audio_effect",
+        "description": "Load an audio effect onto a track by name. The effect is appended to the track's device chain after the instrument. Use list_audio_effects first to find exact names. Use get_device_parameters after loading to see and adjust its parameters.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "name": {"type": "string", "description": "Exact effect name as returned by list_audio_effects"},
+            },
+            "required": ["track", "name"],
+        },
+    },
+    {
         "name": "list_instruments",
         "description": "List available instruments in the Ableton browser. Call this to discover what instruments can be loaded before calling load_instrument.",
         "input_schema": {"type": "object", "properties": {}},
@@ -301,7 +318,7 @@ Timing: beat 1=0.0, beat 2=1.0, beat 3=2.0, beat 4=3.0 (4/4 time)
 1. get_session_info to check existing state
 2. Set tempo and time signature for the genre
 3. Call list_instruments ONCE to see all available instruments
-4. For each part: create_midi_track → rename_track → load_instrument (exact name from list) → shape sound with set_device_parameter → create_midi_clip → set_clip_name → add_notes
+4. For each part: create_midi_track → rename_track → load_instrument (exact name from list) → set_device_parameter to shape sound → load_audio_effect for reverb/delay/EQ (use list_audio_effects first, exact names only) → create_midi_clip → set_clip_name → add_notes
 5. Balance mix: lead ~0.85, pads ~0.7, bass ~0.8, drums ~0.9
 6. One track per instrument — never share tracks
 
@@ -341,6 +358,10 @@ def run_tool(name: str, inputs: dict, ableton: AbletonClient) -> str:
         return json.dumps(ableton.set_track_mute(inputs['track'], inputs['muted']))
     elif name == 'set_track_solo':
         return json.dumps(ableton.set_track_solo(inputs['track'], inputs['solo']))
+    elif name == 'list_audio_effects':
+        return json.dumps(ableton.send({'action': 'list_audio_effects'}))
+    elif name == 'load_audio_effect':
+        return json.dumps(ableton.send({'action': 'load_audio_effect', 'track': inputs['track'], 'name': inputs['name']}))
     elif name == 'list_instruments':
         return json.dumps(ableton.send({'action': 'list_instruments'}))
     elif name == 'load_instrument':
