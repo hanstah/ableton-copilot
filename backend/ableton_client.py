@@ -9,7 +9,7 @@ class AbletonClient:
 
     def send(self, command: dict) -> dict:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5.0)
+        s.settimeout(60.0)
         try:
             s.connect((self.host, self.port))
             s.sendall((json.dumps(command) + '\n').encode())

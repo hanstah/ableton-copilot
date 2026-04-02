@@ -1,7 +1,12 @@
 import sys
+import os
+from pathlib import Path
 import anthropic
+from dotenv import load_dotenv
 from ableton_client import AbletonClient
 from claude_client import chat
+
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 
 def main():

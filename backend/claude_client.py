@@ -130,6 +130,116 @@ TOOLS = [
         },
     },
     {
+        "name": "create_midi_track",
+        "description": "Create a new MIDI track in the session.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "index": {"type": "integer", "description": "Position to insert the track (0-based). Use -1 to append at the end."},
+            },
+        },
+    },
+    {
+        "name": "rename_track",
+        "description": "Rename a track.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "name": {"type": "string", "description": "New name for the track"},
+            },
+            "required": ["track", "name"],
+        },
+    },
+    {
+        "name": "delete_track",
+        "description": "Delete a track from the session.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+            },
+            "required": ["track"],
+        },
+    },
+    {
+        "name": "set_clip_name",
+        "description": "Set the name of a clip.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "slot": {"type": "integer", "description": "Clip slot index (0-based)"},
+                "name": {"type": "string", "description": "New clip name"},
+            },
+            "required": ["track", "slot", "name"],
+        },
+    },
+    {
+        "name": "launch_clip",
+        "description": "Launch (play) a clip in a track slot.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "slot": {"type": "integer", "description": "Clip slot index (0-based)"},
+            },
+            "required": ["track", "slot"],
+        },
+    },
+    {
+        "name": "stop_clip",
+        "description": "Stop a playing clip in a track slot.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "slot": {"type": "integer", "description": "Clip slot index (0-based)"},
+            },
+            "required": ["track", "slot"],
+        },
+    },
+    {
+        "name": "duplicate_clip",
+        "description": "Duplicate a clip to another track/slot.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Source track index (0-based)"},
+                "slot": {"type": "integer", "description": "Source slot index (0-based)"},
+                "dest_track": {"type": "integer", "description": "Destination track index (0-based)"},
+                "dest_slot": {"type": "integer", "description": "Destination slot index (0-based)"},
+            },
+            "required": ["track", "slot", "dest_track", "dest_slot"],
+        },
+    },
+    {
+        "name": "get_device_parameters",
+        "description": "Get all parameters for a device (instrument or effect) on a track. Call this before set_device_parameter to find parameter indices.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "device": {"type": "integer", "description": "Device index on the track (0-based, default 0)"},
+            },
+            "required": ["track"],
+        },
+    },
+    {
+        "name": "set_device_parameter",
+        "description": "Set a parameter value on a device (instrument or effect). Use get_device_parameters first to find the parameter index.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index (0-based)"},
+                "device": {"type": "integer", "description": "Device index on the track (0-based, default 0)"},
+                "parameter": {"type": "integer", "description": "Parameter index from get_device_parameters"},
+                "value": {"type": "number", "description": "New parameter value (within the parameter's min/max range)"},
+            },
+            "required": ["track", "parameter", "value"],
+        },
+    },
+    {
         "name": "set_track_solo",
         "description": "Solo or unsolo a track.",
         "input_schema": {
@@ -147,10 +257,14 @@ SYSTEM_PROMPT = """You are an Ableton Live copilot. You help music producers con
 
 You have tools to:
 - Read session state (tempo, tracks, clips, MIDI notes)
-- Control playback (play, stop)
+- Control playback (play, stop, launch/stop individual clips)
 - Modify session settings (tempo, time signature)
-- Create and edit MIDI clips (create clips, add notes, clear notes)
+- Manage tracks (create, rename, delete MIDI tracks)
+- Create and edit MIDI clips (create, name, duplicate, add notes, clear notes)
 - Mix tracks (volume, mute, solo)
+- Control device parameters (get and set instrument/effect knobs)
+
+When creating a full song or arrangement, always create dedicated tracks for each instrument rather than cramming multiple parts into one track.
 
 When creating MIDI, think carefully about music theory:
 - Use appropriate scales and chord voicings for the genre/mood requested
@@ -180,12 +294,30 @@ def run_tool(name: str, inputs: dict, ableton: AbletonClient) -> str:
         return json.dumps(ableton.add_notes(inputs['track'], inputs['slot'], inputs['notes']))
     elif name == 'clear_clip_notes':
         return json.dumps(ableton.clear_clip_notes(inputs['track'], inputs['slot']))
+    elif name == 'create_midi_track':
+        return json.dumps(ableton.send({'action': 'create_midi_track', 'index': inputs.get('index', -1)}))
+    elif name == 'rename_track':
+        return json.dumps(ableton.send({'action': 'rename_track', 'track': inputs['track'], 'name': inputs['name']}))
     elif name == 'set_track_volume':
         return json.dumps(ableton.set_track_volume(inputs['track'], inputs['value']))
     elif name == 'set_track_mute':
         return json.dumps(ableton.set_track_mute(inputs['track'], inputs['muted']))
     elif name == 'set_track_solo':
         return json.dumps(ableton.set_track_solo(inputs['track'], inputs['solo']))
+    elif name == 'delete_track':
+        return json.dumps(ableton.send({'action': 'delete_track', 'track': inputs['track']}))
+    elif name == 'set_clip_name':
+        return json.dumps(ableton.send({'action': 'set_clip_name', 'track': inputs['track'], 'slot': inputs['slot'], 'name': inputs['name']}))
+    elif name == 'launch_clip':
+        return json.dumps(ableton.send({'action': 'launch_clip', 'track': inputs['track'], 'slot': inputs['slot']}))
+    elif name == 'stop_clip':
+        return json.dumps(ableton.send({'action': 'stop_clip', 'track': inputs['track'], 'slot': inputs['slot']}))
+    elif name == 'duplicate_clip':
+        return json.dumps(ableton.send({'action': 'duplicate_clip', 'track': inputs['track'], 'slot': inputs['slot'], 'dest_track': inputs['dest_track'], 'dest_slot': inputs['dest_slot']}))
+    elif name == 'get_device_parameters':
+        return json.dumps(ableton.send({'action': 'get_device_parameters', 'track': inputs['track'], 'device': inputs.get('device', 0)}))
+    elif name == 'set_device_parameter':
+        return json.dumps(ableton.send({'action': 'set_device_parameter', 'track': inputs['track'], 'device': inputs.get('device', 0), 'parameter': inputs['parameter'], 'value': inputs['value']}))
     else:
         return json.dumps({'error': f'Unknown tool: {name}'})
 
