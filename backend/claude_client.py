@@ -457,7 +457,7 @@ def chat(messages: list, ableton: AbletonClient, client: anthropic.Anthropic) ->
     while True:
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
+            max_tokens=16000,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,
@@ -481,7 +481,11 @@ def chat(messages: list, ableton: AbletonClient, client: anthropic.Anthropic) ->
         tool_results = []
         for block in tool_uses:
             print(f'  [tool: {block.name}]')
-            result = run_tool(block.name, block.input, ableton)
+            try:
+                result = run_tool(block.name, block.input, ableton)
+            except Exception as e:
+                result = json.dumps({'error': str(e)})
+                print(f'  [tool error: {e}]')
             tool_results.append({
                 'type': 'tool_result',
                 'tool_use_id': block.id,
